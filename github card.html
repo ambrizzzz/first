@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Custom Prop Card Shop</title>
+    <style>
+        body { font-family: Arial, sans-serif; background: #f4f4f9; margin: 0; padding: 20px; display: flex; justify-content: center; }
+        .container { background: white; padding: 30px; border-radius: 10px; max-width: 500px; width: 100%; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        h2 { color: #333; text-align: center; }
+        .product-box { background: #eef2f3; padding: 15px; border-radius: 8px; margin-bottom: 20px; text-align: center; }
+        .price { font-size: 20px; color: #28a745; font-weight: bold; }
+        label { display: block; margin-top: 10px; font-weight: bold; color: #555; }
+        input, textarea { width: 100%; padding: 10px; margin-top: 5px; border: 1px solid #ccc; border-radius: 5px; box-sizing: border-box; }
+        button { background: #007bff; color: white; border: none; padding: 12px; width: 100%; font-size: 16px; cursor: pointer; border-radius: 5px; margin-top: 20px; }
+        button:hover { background: #0056b3; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>Custom Prop Card Maker</h2>
+    
+    <div class="product-box">
+        <h3>Custom High-Quality Prop Card</h3>
+        <p>Design your own prop card and get it delivered to your doorstep!</p>
+        <p class="price">Price: ₹90 per card</p>
+    </div>
+
+    <!-- Replace YOUR_FORMSPREE_ENDPOINT with your actual Formspree form ID in Step 2 -->
+    <form action="https://formspree.io/f/YOUR_FORMSPREE_ENDPOINT" method="POST" enctype="multipart/form-data">
+        
+        <label for="name">Full Name</label>
+        <input type="text" id="name" name="name" required placeholder="Enter your full name">
+
+        <label for="phone">Phone Number (for delivery updates)</label>
+        <input type="tel" id="phone" name="phone" required placeholder="10-digit mobile number">
+
+        <label for="address">Delivery Address (with Pincode)</label>
+        <textarea id="address" name="address" rows="3" required placeholder="House No, Street, City, State, Pincode"></textarea>
+
+        <label for="quantity">Quantity (₹90 each)</label>
+        <input type="number" id="quantity" name="quantity" value="1" min="1" required>
+
+        <label for="card_design">Upload Card Idea / Design (Image/PDF)</label>
+        <input type="file" id="card_design" name="card_design" accept="image/*,application/pdf" required>
+
+        <!-- Hidden field to specify subject in your email -->
+        <input type="hidden" name="_subject" value="New Prop Card Order - ₹90">
+
+        <button type="submit">Place Order</button>
+    </form>
+</div>
+
+</body>
+</html>
