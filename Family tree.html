@@ -1,0 +1,599 @@
+import React, { useState, useEffect, useRef } from 'react';
+import {
+  Users,
+  Plus,
+  Edit2,
+  Trash2,
+  Download,
+  Upload,
+  Printer,
+  ZoomIn,
+  ZoomOut,
+  Maximize2,
+  UserPlus,
+  X,
+  ChevronRight,
+  ChevronDown,
+  Sparkles,
+  FileText,
+  RotateCcw,
+  Check,
+  Heart,
+  User
+} from 'lucide-react';
+
+// Initial sample data to help users get started instantly
+const INITIAL_NODES = {
+  'root-1': {
+    id: 'root-1',
+    name: 'Grandfather (Valiyappappan)',
+    gender: 'male',
+    birthYear: '1945',
+    deathYear: '',
+    note: 'Family Patriarch',
+    spouseId: 'root-2',
+    children: ['child-1', 'child-2'],
+    parents: []
+  },
+  'root-2': {
+    id: 'root-2',
+    name: 'Grandmother (Valiyammachi)',
+    gender: 'female',
+    birthYear: '1950',
+    deathYear: '',
+    note: '',
+    spouseId: 'root-1',
+    children: ['child-1', 'child-2'],
+    parents: []
+  },
+  'child-1': {
+    id: 'child-1',
+    name: 'Father (Appan)',
+    gender: 'male',
+    birthYear: '1972',
+    deathYear: '',
+    note: '',
+    spouseId: 'spouse-1',
+    children: ['grandchild-1'],
+    parents: ['root-1', 'root-2']
+  },
+  'spouse-1': {
+    id: 'spouse-1',
+    name: 'Mother (Amma)',
+    gender: 'female',
+    birthYear: '1976',
+    deathYear: '',
+    note: '',
+    spouseId: 'child-1',
+    children: ['grandchild-1'],
+    parents: []
+  },
+  'child-2': {
+    id: 'child-2',
+    name: 'Uncle (Elayappan)',
+    gender: 'male',
+    birthYear: '1978',
+    deathYear: '',
+    note: '',
+    spouseId: null,
+    children: [],
+    parents: ['root-1', 'root-2']
+  },
+  'grandchild-1': {
+    id: 'grandchild-1',
+    name: 'Me / Child',
+    gender: 'male',
+    birthYear: '2002',
+    deathYear: '',
+    note: '',
+    spouseId: null,
+    children: [],
+    parents: ['child-1', 'spouse-1']
+  }
+};
+
+export default function App() {
+  const [nodes, setNodes] = useState(INITIAL_NODES);
+  const [selectedNodeId, setSelectedNodeId] = useState('root-1');
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  
+  // Canvas View Controls
+  const [zoom, setZoom] = useState(1);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+
+  // Add Relative Form State
+  const [targetId, setTargetId] = useState('');
+  const [relationType, setRelationType] = useState('son'); // father, mother, son, daughter, spouse, brother, sister
+  const [newPerson, setNewPerson] = useState({
+    name: '',
+    gender: 'male',
+    birthYear: '',
+    deathYear: '',
+    note: ''
+  });
+
+  // Edit Person Form State
+  const [editPerson, setEditPerson] = useState({
+    id: '',
+    name: '',
+    gender: 'male',
+    birthYear: '',
+    deathYear: '',
+    note: ''
+  });
+
+  const fileInputRef = useRef(null);
+  const containerRef = useRef(null);
+
+  // Focus root on load
+  useEffect(() => {
+    if (nodes['root-1']) {
+      setSelectedNodeId('root-1');
+    } else if (Object.keys(nodes).length > 0) {
+      setSelectedNodeId(Object.keys(nodes)[0]);
+    }
+  }, []);
+
+  // --- Handlers for Panning & Zooming ---
+  const handleMouseDown = (e) => {
+    if (e.target.closest('.interactive-node') || e.target.closest('button')) return;
+    setIsDragging(true);
+    setDragStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
+  };
+
+  const handleMouseMove = (e) => {
+    if (!isDragging) return;
+    setPan({
+      x: e.clientX - dragStart.x,
+      y: e.clientY - dragStart.y
+    });
+  };
+
+  const handleMouseUp = () => {
+    setIsDragging(false);
+  };
+
+  const handleWheel = (e) => {
+    e.preventDefault();
+    const zoomFactor = e.deltaY < 0 ? 1.1 : 0.9;
+    setZoom((prev) => Math.min(Math.max(prev * zoomFactor, 0.4), 2.5));
+  };
+
+  const resetView = () => {
+    setZoom(1);
+    setPan({ x: 0, y: 0 });
+  };
+
+  // --- Tree Logic Functions ---
+
+  const handleOpenAddModal = (idToConnectTo = null) => {
+    const target = idToConnectTo || selectedNodeId || Object.keys(nodes)[0];
+    setTargetId(target);
+    setNewPerson({ name: '', gender: 'male', birthYear: '', deathYear: '', note: '' });
+    setRelationType('son');
+    setIsAddModalOpen(true);
+  };
+
+  const handleAddMember = (e) => {
+    e.preventDefault();
+    if (!newPerson.name.trim() || !targetId) return;
+
+    const newId = `person-${Date.now()}`;
+    const targetNode = nodes[targetId];
+
+    let updatedNodes = { ...nodes };
+
+    const createdPerson = {
+      id: newId,
+      name: newPerson.name.trim(),
+      gender: newPerson.gender,
+      birthYear: newPerson.birthYear,
+      deathYear: newPerson.deathYear,
+      note: newPerson.note,
+      spouseId: null,
+      children: [],
+      parents: []
+    };
+
+    if (relationType === 'father' || relationType === 'mother') {
+      createdPerson.children = [targetId];
+      updatedNodes[targetId] = {
+        ...targetNode,
+        parents: [...(targetNode.parents || []), newId]
+      };
+
+      // If target node already has a parent of opposite sex, set as spouses
+      const existingParentIds = targetNode.parents || [];
+      existingParentIds.forEach((pId) => {
+        if (updatedNodes[pId]) {
+          updatedNodes[pId].spouseId = newId;
+          createdPerson.spouseId = pId;
+        }
+      });
+    } else if (relationType === 'son' || relationType === 'daughter') {
+      createdPerson.parents = [targetId];
+      if (targetNode.spouseId) {
+        createdPerson.parents.push(targetNode.spouseId);
+        updatedNodes[targetNode.spouseId] = {
+          ...updatedNodes[targetNode.spouseId],
+          children: [...(updatedNodes[targetNode.spouseId].children || []), newId]
+        };
+      }
+      updatedNodes[targetId] = {
+        ...targetNode,
+        children: [...(targetNode.children || []), newId]
+      };
+    } else if (relationType === 'spouse') {
+      createdPerson.spouseId = targetId;
+      createdPerson.children = [...(targetNode.children || [])];
+
+      // Add spouse to existing children's parents list
+      (targetNode.children || []).forEach((childId) => {
+        if (updatedNodes[childId]) {
+          updatedNodes[childId] = {
+            ...updatedNodes[childId],
+            parents: Array.from(new Set([...(updatedNodes[childId].parents || []), newId]))
+          };
+        }
+      });
+
+      updatedNodes[targetId] = {
+        ...targetNode,
+        spouseId: newId
+      };
+    } else if (relationType === 'brother' || relationType === 'sister') {
+      createdPerson.parents = [...(targetNode.parents || [])];
+      (targetNode.parents || []).forEach((pId) => {
+        if (updatedNodes[pId]) {
+          updatedNodes[pId] = {
+            ...updatedNodes[pId],
+            children: [...(updatedNodes[pId].children || []), newId]
+          };
+        }
+      });
+    }
+
+    updatedNodes[newId] = createdPerson;
+    setNodes(updatedNodes);
+    setSelectedNodeId(newId);
+    setIsAddModalOpen(false);
+  };
+
+  const handleOpenEditModal = (node) => {
+    setEditPerson({
+      id: node.id,
+      name: node.name,
+      gender: node.gender,
+      birthYear: node.birthYear || '',
+      deathYear: node.deathYear || '',
+      note: node.note || ''
+    });
+    setIsEditModalOpen(true);
+  };
+
+  const handleSaveEdit = (e) => {
+    e.preventDefault();
+    setNodes((prev) => ({
+      ...prev,
+      [editPerson.id]: {
+        ...prev[editPerson.id],
+        name: editPerson.name,
+        gender: editPerson.gender,
+        birthYear: editPerson.birthYear,
+        deathYear: editPerson.deathYear,
+        note: editPerson.note
+      }
+    }));
+    setIsEditModalOpen(false);
+  };
+
+  const handleDeleteMember = (id) => {
+    if (Object.keys(nodes).length <= 1) {
+      alert('You cannot delete the only node in the tree.');
+      return;
+    }
+
+    if (!window.confirm('Are you sure you want to delete this family member?')) return;
+
+    const newNodes = { ...nodes };
+
+    // Remove relations to this node
+    Object.keys(newNodes).forEach((k) => {
+      const node = newNodes[k];
+      if (node.spouseId === id) node.spouseId = null;
+      node.children = (node.children || []).filter((cId) => cId !== id);
+      node.parents = (node.parents || []).filter((pId) => pId !== id);
+    });
+
+    delete newNodes[id];
+
+    setNodes(newNodes);
+    if (selectedNodeId === id) {
+      setSelectedNodeId(Object.keys(newNodes)[0]);
+    }
+  };
+
+  const handleClearAll = () => {
+    if (window.confirm('Start fresh with a single default person?')) {
+      const rootId = `person-${Date.now()}`;
+      setNodes({
+        [rootId]: {
+          id: rootId,
+          name: 'First Ancestor / Me',
+          gender: 'male',
+          birthYear: '',
+          deathYear: '',
+          note: 'Root member',
+          spouseId: null,
+          children: [],
+          parents: []
+        }
+      });
+      setSelectedNodeId(rootId);
+    }
+  };
+
+  // Export JSON
+  const handleExportJSON = () => {
+    const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(nodes, null, 2));
+    const downloadAnchor = document.createElement('a');
+    downloadAnchor.setAttribute('href', dataStr);
+    downloadAnchor.setAttribute('download', `Family_Tree_${new Date().toISOString().slice(0, 10)}.json`);
+    document.body.appendChild(downloadAnchor);
+    downloadAnchor.click();
+    downloadAnchor.remove();
+  };
+
+  // Import JSON
+  const handleImportJSON = (e) => {
+    const fileReader = new FileReader();
+    if (e.target.files && e.target.files[0]) {
+      fileReader.readAsText(e.target.files[0], 'UTF-8');
+      fileReader.onload = (event) => {
+        try {
+          const parsed = JSON.parse(event.target.result);
+          if (parsed && typeof parsed === 'object') {
+            setNodes(parsed);
+            setSelectedNodeId(Object.keys(parsed)[0]);
+            alert('Family Tree successfully loaded!');
+          }
+        } catch (err) {
+          alert('Invalid JSON file format.');
+        }
+      };
+    }
+  };
+
+  // Print view
+  const handlePrint = () => {
+    window.print();
+  };
+
+  // Helper to find roots (nodes without parents)
+  const getRootNodes = () => {
+    const allIds = Object.keys(nodes);
+    const roots = allIds.filter((id) => {
+      const n = nodes[id];
+      return !n.parents || n.parents.length === 0;
+    });
+    return roots.length > 0 ? roots : [allIds[0]];
+  };
+
+  // Recursively render tree structure
+  const renderTreeNode = (nodeId, visited = new Set()) => {
+    if (!nodes[nodeId] || visited.has(nodeId)) return null;
+    visited.add(nodeId);
+
+    const person = nodes[nodeId];
+    const spouse = person.spouseId ? nodes[person.spouseId] : null;
+
+    if (spouse) visited.add(spouse.id);
+
+    const isSelected = selectedNodeId === nodeId || (spouse && selectedNodeId === spouse.id);
+
+    return (
+      <div key={nodeId} className="flex flex-col items-center">
+        {/* Person & Spouse Group */}
+        <div className="flex items-center gap-3 relative z-10 my-2">
+          {/* Main Person Card */}
+          <PersonCard
+            person={person}
+            isSelected={selectedNodeId === person.id}
+            onSelect={() => setSelectedNodeId(person.id)}
+            onAdd={() => handleOpenAddModal(person.id)}
+            onEdit={() => handleOpenEditModal(person)}
+            onDelete={() => handleDeleteMember(person.id)}
+          />
+
+          {/* Spouse Card if exists */}
+          {spouse && (
+            <>
+              <div className="flex flex-col items-center justify-center text-pink-500 font-bold px-1">
+                <Heart className="w-5 h-5 fill-pink-500 animate-pulse" />
+              </div>
+              <PersonCard
+                person={spouse}
+                isSelected={selectedNodeId === spouse.id}
+                onSelect={() => setSelectedNodeId(spouse.id)}
+                onAdd={() => handleOpenAddModal(spouse.id)}
+                onEdit={() => handleOpenEditModal(spouse)}
+                onDelete={() => handleDeleteMember(spouse.id)}
+              />
+            </>
+          )}
+        </div>
+
+        {/* Children Sub-tree connection lines */}
+        {person.children && person.children.length > 0 && (
+          <div className="flex flex-col items-center w-full mt-1">
+            {/* Vertical connector down from couple */}
+            <div className="w-0.5 h-6 bg-slate-300 dark:bg-slate-600"></div>
+
+            {/* Horizontal branch line */}
+            {person.children.length > 1 && (
+              <div className="w-3/4 border-t-2 border-slate-300 dark:border-slate-600 mb-2"></div>
+            )}
+
+            {/* Children container */}
+            <div className="flex flex-wrap justify-center gap-8 relative pt-2">
+              {person.children.map((childId) => (
+                <div key={childId} className="flex flex-col items-center relative">
+                  {/* Top connector for each child */}
+                  <div className="w-0.5 h-4 bg-slate-300 dark:bg-slate-600 -mt-2 mb-1"></div>
+                  {renderTreeNode(childId, visited)}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const selectedNode = nodes[selectedNodeId];
+
+  return (
+    <div className="flex h-screen bg-slate-900 text-slate-100 font-sans overflow-hidden select-none">
+      {/* LEFT SIDEBAR: Controls & Inspector */}
+      <aside className="w-80 border-r border-slate-800 bg-slate-950/80 backdrop-blur-md flex flex-col z-20 shadow-xl">
+        {/* Header */}
+        <div className="p-4 border-b border-slate-800 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="bg-emerald-500/20 text-emerald-400 p-2 rounded-lg border border-emerald-500/30">
+              <Users className="w-5 h-5" />
+            </div>
+            <div>
+              <h1 className="font-bold text-base text-slate-100">Kudumbavriksham</h1>
+              <p className="text-xs text-slate-400">Malayalam Family Tree</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Action Toolbar */}
+        <div className="p-3 border-b border-slate-800 grid grid-cols-2 gap-2 text-xs">
+          <button
+            onClick={() => handleOpenAddModal()}
+            className="flex items-center justify-center gap-1.5 py-2 px-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-medium transition shadow-md shadow-emerald-950/50"
+          >
+            <UserPlus className="w-4 h-4" /> Add Person
+          </button>
+          <button
+            onClick={handleExportJSON}
+            className="flex items-center justify-center gap-1.5 py-2 px-3 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg font-medium transition"
+          >
+            <Download className="w-4 h-4" /> Export JSON
+          </button>
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            className="flex items-center justify-center gap-1.5 py-2 px-3 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg font-medium transition"
+          >
+            <Upload className="w-4 h-4" /> Import JSON
+          </button>
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={handleImportJSON}
+            accept=".json"
+            className="hidden"
+          />
+          <button
+            onClick={handlePrint}
+            className="flex items-center justify-center gap-1.5 py-2 px-3 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg font-medium transition"
+          >
+            <Printer className="w-4 h-4" /> Print / PDF
+          </button>
+        </div>
+
+        {/* Selected Member Details */}
+        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+          {selectedNode ? (
+            <div className="bg-slate-800/60 border border-slate-700/60 rounded-xl p-4 relative">
+              <div className="flex items-start justify-between">
+                <div>
+                  <span
+                    className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
+                      selectedNode.gender === 'female'
+                        ? 'bg-pink-500/20 text-pink-300 border border-pink-500/30'
+                        : selectedNode.gender === 'male'
+                        ? 'bg-sky-500/20 text-sky-300 border border-sky-500/30'
+                        : 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
+                    }`}
+                  >
+                    {selectedNode.gender}
+                  </span>
+                  <h2 className="text-lg font-bold text-slate-100 mt-1">{selectedNode.name}</h2>
+                  {(selectedNode.birthYear || selectedNode.deathYear) && (
+                    <p className="text-xs text-slate-400">
+                      {selectedNode.birthYear || '??'} — {selectedNode.deathYear || 'Present'}
+                    </p>
+                  )}
+                </div>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => handleOpenEditModal(selectedNode)}
+                    className="p-1.5 hover:bg-slate-700 text-slate-300 rounded-lg transition"
+                    title="Edit"
+                  >
+                    <Edit2 className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => handleDeleteMember(selectedNode.id)}
+                    className="p-1.5 hover:bg-rose-500/20 text-rose-400 rounded-lg transition"
+                    title="Delete"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+
+              {selectedNode.note && (
+                <div className="mt-3 text-xs bg-slate-900/50 p-2.5 rounded-lg border border-slate-800 text-slate-300 italic">
+                  "{selectedNode.note}"
+                </div>
+              )}
+
+              {/* Add relative action from current node */}
+              <div className="mt-4 pt-3 border-t border-slate-700/60">
+                <p className="text-xs font-semibold text-slate-400 mb-2">Quick Actions</p>
+                <button
+                  onClick={() => handleOpenAddModal(selectedNode.id)}
+                  className="w-full flex items-center justify-center gap-2 py-2 px-3 bg-emerald-600/20 border border-emerald-500/40 text-emerald-300 rounded-lg hover:bg-emerald-600/30 text-xs font-medium transition"
+                >
+                  <UserPlus className="w-4 h-4" /> Add Relative to {selectedNode.name.split(' ')[0]}
+                </button>
+              </div>
+
+              {/* Immediate Connections */}
+              <div className="mt-4 space-y-2 text-xs">
+                <p className="font-semibold text-slate-400">Connections</p>
+
+                {/* Parents */}
+                <div className="flex items-start gap-2">
+                  <span className="text-slate-500 w-16">Parents:</span>
+                  <div className="flex-1 flex flex-wrap gap-1">
+                    {selectedNode.parents && selectedNode.parents.length > 0 ? (
+                      selectedNode.parents.map((pId) => (
+                        <button
+                          key={pId}
+                          onClick={() => setSelectedNodeId(pId)}
+                          className="bg-slate-700/70 hover:bg-slate-700 px-2 py-0.5 rounded text-slate-200 underline text-[11px]"
+                        >
+                          {nodes[pId]?.name}
+                        </button>
+                      ))
+                    ) : (
+                      <span className="text-slate-600 italic">None linked</span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Spouse */}
+                <div className="flex items-center gap-2">
+                  <span className="text-slate-500 w-16">Spouse:</span>
+                  <div className="flex-1">
+                    {selectedNode.spouseId && nodes[selectedNode.spouseId] ? (
+                      <button
+                        onClick=
